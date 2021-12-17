@@ -34,10 +34,7 @@ const validateRegisterInput = (data) => {
 	if (!Validator.equals(data.password, data.confirmPassword))
 		errors.confirmPassword = 'passwords must match'
 
-	return {
-		errors,
-		isValid: isEmpty(errors),
-	}
+	return errors
 }
 
 export default validateRegisterInput

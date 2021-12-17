@@ -28,7 +28,10 @@ app.use(express.json({ limit: '50mb' }))
 app.use(express.urlencoded({ limit: '50mb', extended: true }))
 app.use(cors())
 
-const unprotectedRoutes = ['/register', '/login']
+const login = '/login'
+const register = '/register'
+
+const unprotectedRoutes = [login, register]
 
 app.use(
 	jwt({
@@ -36,6 +39,16 @@ app.use(
 		algorithms: ['HS256'],
 	}).unless({ path: unprotectedRoutes })
 )
+
+app.use((err, req, res, next) => {
+	const { name, message } = err
+
+	if (name === 'UnauthorizedError')
+		return res.status(401).json({
+			valid: false,
+			message: message,
+		})
+})
 
 const PORT = 8000
 
@@ -60,6 +73,7 @@ class Failure {
 
 app.get('/getAllUsers', async (req, res) => {
 	const { headers, user } = req
+
 	console.log(user)
 
 	const client = await pool.connect()
@@ -68,7 +82,7 @@ app.get('/getAllUsers', async (req, res) => {
 	client.release()
 })
 
-app.post(unprotectedRoutes[1], async (req, res) => {
+app.post(register, async (req, res) => {
 	const { errors, isValid } = validateRegisterInput(req.body)
 
 	if (!isValid) return res.status(400).json(new Failure(errors))
@@ -83,7 +97,7 @@ app.post(unprotectedRoutes[1], async (req, res) => {
 	)
 
 	if (isEmailRegistered.rowCount)
-		return res.status(400).json(new Failure({ email: 'Email already exists' }))
+		return res.status(400).json(new Failure({ message: 'Email already exists' }))
 
 	const result = await pool.query(
 		'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING _id',
@@ -108,7 +122,7 @@ app.post(unprotectedRoutes[1], async (req, res) => {
 	)
 })
 
-app.post(unprotectedRoutes[0], async (req, res) => {
+app.post(login, async (req, res) => {
 	const { errors, isValid } = validateLoginInput(req.body)
 
 	if (!isValid) return res.status(400).json(new Failure(errors))
@@ -140,6 +154,19 @@ app.post(unprotectedRoutes[0], async (req, res) => {
 			token: `bearer ${token}`,
 		}).addMessage('User logged in successfully')
 	)
+})
+
+app.get('/validateToken', async (req, res) => {
+	const {
+		user: { _id },
+	} = req
+
+	const result = await pool.query('SELECT name FROM users WHERE _id = $1', [_id])
+
+	if (!result.rowCount)
+		return res.status(400).send(new Failure({ message: 'User not found' }))
+
+	return res.json({ valid: true })
 })
 
 app.listen(PORT, () => {

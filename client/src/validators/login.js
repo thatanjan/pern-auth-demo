@@ -18,10 +18,7 @@ const validateRegisterInput = (data) => {
 	if (!emptyEmail && !Validator.isEmail(data.email))
 		errors.email = 'Invalid email address'
 
-	return {
-		errors,
-		isValid: isEmpty(errors),
-	}
+	return errors
 }
 
 export default validateRegisterInput
