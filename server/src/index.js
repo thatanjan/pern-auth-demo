@@ -6,7 +6,6 @@ import { hash, compare } from 'bcrypt'
 import { sign } from 'jsonwebtoken'
 import jwt from 'express-jwt'
 
-import isEmpty from 'utils/isEmpty'
 import validateRegisterInput from 'validators/register'
 import validateLoginInput from 'validators/login'
 
@@ -40,7 +39,7 @@ app.use(
 	}).unless({ path: unprotectedRoutes })
 )
 
-app.use((err, req, res, next) => {
+app.use((err, _, res, next) => {
 	const { name, message } = err
 
 	if (name === 'UnauthorizedError')
@@ -48,6 +47,24 @@ app.use((err, req, res, next) => {
 			valid: false,
 			message: message,
 		})
+
+	next()
+})
+
+app.use(async (req, res, next) => {
+	const { user } = req
+
+	if (!user) return next()
+
+	const result = await pool.query(
+		'SELECT name FROM users WHERE _id = $1 LIMIT 1',
+		[user._id]
+	)
+
+	if (!result.rowCount)
+		return res.status(400).send(new Failure({ message: 'User not found' }))
+
+	next()
 })
 
 const PORT = 8000
@@ -72,12 +89,12 @@ class Failure {
 }
 
 app.get('/getAllUsers', async (req, res) => {
-	const { headers, user } = req
+	const { user } = req
 
 	console.log(user)
 
 	const client = await pool.connect()
-	const result = await client.query('SELECT name, email FROM users')
+	const result = await client.query('SELECT name, email FROM users LIMIT 3')
 	res.send(result.rows)
 	client.release()
 })
@@ -156,19 +173,6 @@ app.post(login, async (req, res) => {
 	)
 })
 
-app.get('/validateToken', async (req, res) => {
-	const {
-		user: { _id },
-	} = req
+app.get('/validateToken', (_, res) => res.json({ valid: true }))
 
-	const result = await pool.query('SELECT name FROM users WHERE _id = $1', [_id])
-
-	if (!result.rowCount)
-		return res.status(400).send(new Failure({ message: 'User not found' }))
-
-	return res.json({ valid: true })
-})
-
-app.listen(PORT, () => {
-	console.log(`Server is running on port ${PORT}`)
-})
+app.listen(PORT, () => console.log(`Server is running on port ${PORT}`))

@@ -1,42 +1,45 @@
-import Validator from 'validator'
-import isEmpty from 'utils/isEmpty'
+import { isEmpty, isEmail, isLength, equals } from 'validator'
+import isEmptyValue from 'utils/isEmpty'
+
+import makeBodyValid from 'utils/makeBodyValid'
 
 const validateRegisterInput = (data) => {
 	const errors = {}
 
-	Object.keys(data).forEach((property) => {
-		data[property] = !isEmpty(data[property]) ? data[property] : ''
-	})
+	const properties = ['name', 'email', 'password', 'confirmPassword']
 
-	const emptyEmail = Validator.isEmpty(data.email)
-	const emptyPassword = Validator.isEmpty(data.password)
-	const emptyConfirmPassword = Validator.isEmpty(data.confirmPassword)
-	const emptyName = Validator.isEmpty(data.name)
+	data = makeBodyValid(properties, data)
+
+	const { name, email, password, confirmPassword } = data
+
+	const emptyEmail = isEmpty(email)
+	const emptyPassword = isEmpty(password)
+	const emptyConfirmPassword = isEmpty(confirmPassword)
+	const emptyName = isEmpty(name)
 
 	if (emptyName) errors.name = 'Name field is required'
 
 	if (emptyEmail) errors.email = 'Email field is required'
 
-	if (!emptyEmail && !Validator.isEmail(data.email))
-		errors.email = 'Invalid email address'
-
-	if (!emptyName && !Validator.isLength(data.name, { min: 3, max: 30 }))
-		errors.name = 'Name must be between 2 and 30'
-
 	if (emptyPassword) errors.password = 'Password is required'
-
-	if (!emptyPassword && !Validator.isLength(data.password, { min: 6, max: 30 }))
-		errors.password = 'password must be 6 to 30 characters'
 
 	if (emptyConfirmPassword)
 		errors.confirmPassword = 'Confirm password is required'
 
-	if (!Validator.equals(data.password, data.confirmPassword))
+	if (!emptyEmail && !isEmail(email)) errors.email = 'Invalid email address'
+
+	if (!emptyName && !isLength(name, { min: 3, max: 30 }))
+		errors.name = 'Name must be between 2 and 30'
+
+	if (!emptyPassword && !isLength(password, { min: 6, max: 30 }))
+		errors.password = 'password must be 6 to 30 characters'
+
+	if (!equals(password, confirmPassword))
 		errors.confirmPassword = 'passwords must match'
 
 	return {
 		errors,
-		isValid: isEmpty(errors),
+		isValid: isEmptyValue(errors),
 	}
 }
 
